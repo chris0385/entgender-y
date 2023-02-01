@@ -1,17 +1,14 @@
+import {NeutralStyleConfig} from "./config-def";
 
-type ReplacementConfig = string;
-type NeutralStyleConfig = {
-    artikelUndKontraktionen: {
-        "dendiedessen..":{
-            "dendie": ReplacementConfig
-        }
-    }
-};
 
 export const Phettberg: NeutralStyleConfig = {
+    something: {foo: {dendie: "undefined"}},
     artikelUndKontraktionen: {
-        "dendiedessen..": {
+        "den,die,dessen..": {
             dendie: "\$1as"
+        },
+        other: {
+            bla: ""
         }
     }
 }
