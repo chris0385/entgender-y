@@ -8,7 +8,7 @@ import {
 import {Replacement} from "./replacement";
 
 class SubCls<T extends GenericOneLevelConfig> {
-    private config: T;
+    private readonly config: T;
 
     constructor(config: T) {
         this.config = config;
@@ -27,7 +27,7 @@ class SubCls<T extends GenericOneLevelConfig> {
 }
 
 class SubGroup<T extends KeyToReplacementConfig> {
-    private config: T;
+    private readonly config: T;
 
     constructor(config: T) {
         this.config = config;
@@ -44,7 +44,7 @@ class SubGroup<T extends KeyToReplacementConfig> {
 
 type ValueOf<T> = T[keyof T];
 export class Factory {
-    private config: TwoLevelConfig;
+    private readonly config: TwoLevelConfig;
 
     constructor(config: NeutralStyleConfig) {
         this.config = config;

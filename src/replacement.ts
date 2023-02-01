@@ -45,6 +45,7 @@ BinnenRegEx.addMapping = (key: string, replacement: string) => {
 }
 BinnenRegEx.addMapping("{STERN-KLO}", `(?:${BinnenIMap['{STERN}']}|${BinnenIMap['{KLO}']})`);
 
+
 export class Replacement {
     readonly regex: string;
     readonly modifier: string;

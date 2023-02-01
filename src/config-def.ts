@@ -18,3 +18,13 @@ export type TwoLevelConfig = {
     }
 };
 export type NeutralStyleConfig = TwoLevelConfig;
+
+type PartialRecurse<T> = {
+    [P in keyof T]?: PartialRecurse<T[P]>;
+};
+
+/**
+ * Wenn viele verschiedene Systeme implementiert werden, könnte es schwer werden code zu ändern.
+ * Eine partielle Konfiguration (mit fallback) könnte helfen die configurationsarbeit zu verschieben
+ */
+export type PartialStyleConfig = PartialRecurse<NeutralStyleConfig>

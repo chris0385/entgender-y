@@ -29,3 +29,37 @@ And in code:
 
 This would enable support of alternatives to Phettberg using config file, without changing code.
 Example of alternative: https://geschlechtsneutral.net/kurzubersicht-uber-das-gesamtsystem/
+
+## Schwierigkeiten
+
+### Methoden
+entfernePartizip nutzt methoden. Es ist aber plural erkennung, könnte so sein:
+```typescript
+type FOO = {
+    entfernePartizip: {
+        "Studierende": {
+            "ROOT": "Student",
+            "SINGULAR": "y",
+            "PLURAL": "ys",
+        },
+        "Dozierende": {
+            "bla": ReplacementConfig
+        }
+    }
+}
+s = factory.replacement(/(?<!^)(?<!\. )Studierende(r|n?)?/g, "Studierende", (match) => {
+    if (match.endsWith("n") || match.endsWith("e")) {
+        return "PLURAL";
+    }
+    return "SINGULAR";
+}).replace(s, counter);
+```
+
+### Unterschiedliche regeln
+Eventuell muss es teilweise mit plug-ins behandelt werden, weil die Unterschiede zu Groß sind.
+
+Alternativ: "alles ist ein plugin" ansatz?
+
+# Performance:
+In Replacement, cache RegExp
+In factories, cache Replacement instances
