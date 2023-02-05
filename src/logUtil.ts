@@ -35,12 +35,13 @@ class ConditionalRunHelper implements Logger {
     }
 }
 
-const disableAllLogs = true;
+// Don't ever put enableDebugging = true in a public release
+const enableDebugging = false;
+
+const disableAllLogs = true && !enableDebugging;
 export const isBrowser = disableAllLogs ? undefined : (_isBrowser ? new ConditionalRunHelper() : undefined);
 export const isNodeJs = disableAllLogs ? undefined : (!_isBrowser ? new ConditionalRunHelper() : undefined);
 
-// Don't ever put enableDebugging = true in a public release
-const enableDebugging = false;
 export const ifDebugging = enableDebugging ? new ConditionalRunHelper() : undefined;
 
 export function getLogger(name?: string): Logger {

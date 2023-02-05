@@ -1,4 +1,5 @@
-import {FilterType, Settings} from "./control-api";
+import {EngenderSystemLabels, FilterType, Settings} from "./control-api";
+import {createDomElement} from "../utils/dom";
 
 function querySelector<T extends HTMLElement>(sel: string): T {
     return <T>document.querySelector(sel)!!;
@@ -14,6 +15,7 @@ function saveOptions() {
         let settings: Settings = {
             aktiv: querySelector<HTMLInputElement>("#aktiv").checked,
             counter: querySelector<HTMLInputElement>("#counter").checked,
+            entgender_alternative: querySelector<HTMLSelectElement>("#entgender_alternative").value as any,
             invertiert: querySelector<HTMLInputElement>("#invertiert").checked,
             hervorheben: querySelector<HTMLInputElement>("#hervorheben").checked,
             hervorheben_style: querySelector<HTMLInputElement>("#hervorheben_style").value,
@@ -48,6 +50,7 @@ function restoreOptions() {
     chrome.storage.sync.get(function (res: Required<Settings>) {
         querySelector<HTMLInputElement>("#aktiv").checked = res.aktiv;
         querySelector<HTMLInputElement>("#counter").checked = res.counter;
+        querySelector<HTMLSelectElement>("#entgender_alternative").value = res.entgender_alternative;
         querySelector<HTMLInputElement>("#invertiert").checked = res.invertiert;
         querySelector<HTMLInputElement>("#hervorheben").checked = res.hervorheben;
         querySelector<HTMLInputElement>("#hervorheben_style").value = res.hervorheben_style;
@@ -74,7 +77,7 @@ function restoreOptions() {
 
 export function onHighlightChange() {
     let styleInp = querySelector<HTMLInputElement>("#hervorheben_style");
-    for (let e of document.getElementsByClassName('entgendy-change') as any) {
+    for (let e of document.getElementsByClassName('entgendy-change')) {
         e.setAttribute("style", styleInp.value);
     }
     verzoegertesSpeichern();
@@ -86,13 +89,26 @@ export function onHighlightExampleChange() {
     onHighlightChange();
 }
 
+function setupAlternatives() {
+    let select = querySelector<HTMLSelectElement>("#entgender_alternative");
+    select.innerHTML = '';
+    for (let [key, value] of Object.entries(EngenderSystemLabels)) {
+        let option = createDomElement("option", {
+            value: key,
+            textContent: value,
+        })
+        select.appendChild(option);
+    }
+}
+setupAlternatives();
+
 let hervorheben_style = querySelector("#hervorheben_style");
 hervorheben_style.onkeyup = onHighlightChange
 querySelector("#hervorheben-beispiele").onchange = onHighlightExampleChange;
 
 document.addEventListener('DOMContentLoaded', restoreOptions);
 
-const choices = document.querySelectorAll("input");
+const choices = document.querySelectorAll("input, option");
 for (let i = 0; i < choices.length; i++) {
     choices[i].addEventListener("click", saveOptions);
 }

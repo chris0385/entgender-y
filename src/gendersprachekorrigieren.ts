@@ -1,14 +1,7 @@
 import {Replacement} from './replacement'
 import {Phettberg} from './schreibalternativen/phettberg';
-import {
-    BeGoneSettings,
-    CountRequest,
-    ErrorRequest,
-    NeedOptionsRequest,
-    Response,
-    ResponseType
-} from "./control/control-api";
-import {SchreibAlternative} from "./schreibalternativen/alternative";
+import {BeGoneSettings, CountRequest, ErrorRequest, NeedOptionsRequest, Response} from "./control/control-api";
+import {SchreibAlternative, SchreibAlternativeConstructors} from "./schreibalternativen/alternative";
 import {ChangeHighlighter} from "./ChangeHighlighter";
 import {ChangeAllowedChecker} from "./changeAllowedChecker";
 import {ifDebugging, stackToBeGone} from "./logUtil";
@@ -32,19 +25,22 @@ class BeGoneSettingsHelper {
 }
 
 export class BeGone {
-    public version = 2.7; // TODO: warum ist hier ein version?
+    public readonly version = 2.7; // TODO: warum ist hier ein version?
     private settings: BeGoneSettings = {aktiv: true, partizip: true, doppelformen: true, skip_topic: false};
-
-    // Info / TODO: mtype kann wohl nur = "ondemand" sein, und anscheinend wird dieses Feld auch als "isOndemand" Feld genutzt.
-    // TODO: umbauen, dies sollte ein boolean sein, sonst geht es kaputt wenn jemand ein neues ResponseType einführt
-    private mtype: ResponseType | undefined = undefined;
-
-    private replacer: SchreibAlternative = new Phettberg();
     private readonly changeHighlighter = new ChangeHighlighter();
     private readonly changeAllowedChecker = new ChangeAllowedChecker();
 
+    private isOnDemand: boolean = false;
+
+    private replacer: SchreibAlternative;
+    private mutationObserverInitialized: boolean = false;
+
+    constructor(replacer: SchreibAlternative = new Phettberg()) {
+        this.replacer = replacer;
+    }
+
     private log(...s: any[]) {
-        ifDebugging && console.log("BG", ...s, "\n" + stackToBeGone(1).join("\n"));
+        ifDebugging?.log("BG", ...s, "\n" + stackToBeGone(1).join("\n"));
     }
 
     private textNodesUnder(el: Node): Array<CharacterData> {
@@ -96,44 +92,68 @@ export class BeGone {
 
         if (!this.settings.aktiv && this.settings.filterliste !== "Bei Bedarf" || this.settings.filterliste == "Bei Bedarf" && message.type !== "ondemand") return;
 
-        this.mtype = message.type;
+        if (message.type == 'ondemand') {
+            this.isOnDemand = true;
+        }
+        if (this.settings.entgender_alternative) {
+            let alt = this.settings.entgender_alternative;
+            let constructor = SchreibAlternativeConstructors[alt];
+            if (!(this.replacer instanceof constructor)) {
+                console.log("Initializing a new replacer for ", alt);
+                this.replacer = new constructor();
+            }else {
+                ifDebugging?.log("NOT Initializing a new ", alt);
+            }
+        }
+
         if (this.currentPageNotExcludedByWhitelistOrBlackList()) {
             //Entfernen bei erstem Laden der Seite
             this.entferneInitial();
-
-            //Entfernen bei Seitenänderungen
-            try {
-                const observer = new MutationObserver((mutations: MutationRecord[]) => {
-                    // Der changeAllowedChecker muss geupdated werden bevor entferneInserted(.) aufgerufen wird
-                    this.changeAllowedChecker.handleMutations(mutations);
-
-                    let insertedNodes = new Array<CharacterData>();
-                    mutations.forEach((mutation: MutationRecord) => {
-                        for (let i = 0; i < mutation.addedNodes.length; i++) {
-                            insertedNodes = insertedNodes.concat(this.textNodesUnder(mutation.addedNodes[i]));
-                        }
-                    });
-                    this.entferneInserted(insertedNodes);
-                });
-                observer.observe(document, {
-                    childList: true,
-                    subtree: true,
-                    // attributes needed for changeAllowedChecker
-                    attributes: true,
-                    characterData: false
-                });
-            } catch (e) {
-                console.error(e);
-                chrome.runtime.sendMessage({
-                    action: 'error',
-                    page: document.location.hostname,
-                    source: 'gendersprachekorrigieren.js',
-                    error: e
-                } as ErrorRequest);
-            }
+            this.initializeMutationObserver();
         }
     }
 
+
+    private initializeMutationObserver() {
+        if (this.mutationObserverInitialized) {
+            // avoid creating new MutationObserver each time the user activate the addon
+            ifDebugging?.log("Skip MutationObserver, already exists")
+            return;
+        }
+        console.log("Create MutationObserver")
+        // Entfernen bei Seitenänderungen
+        try {
+            const observer = new MutationObserver((mutations: MutationRecord[]) => {
+                // Der changeAllowedChecker muss geupdated werden bevor entferneInserted(.) aufgerufen wird
+                this.changeAllowedChecker.handleMutations(mutations);
+
+                let insertedNodes = new Array<CharacterData>();
+                mutations.forEach((mutation: MutationRecord) => {
+                    for (let i = 0; i < mutation.addedNodes.length; i++) {
+                        insertedNodes = insertedNodes.concat(this.textNodesUnder(mutation.addedNodes[i]));
+                    }
+                });
+                this.entferneInserted(insertedNodes);
+            });
+            observer.observe(document, {
+                childList: true,
+                subtree: true,
+                // attributes needed for changeAllowedChecker
+                attributes: true,
+                characterData: false
+            });
+
+            this.mutationObserverInitialized = true;
+        } catch (e) {
+            console.error(e);
+            chrome.runtime.sendMessage({
+                action: 'error',
+                page: document.location.hostname,
+                source: 'gendersprachekorrigieren.js',
+                error: e
+            } as ErrorRequest);
+        }
+    }
 
     private currentPageNotExcludedByWhitelistOrBlackList() {
         if (!BeGoneSettingsHelper.isWhitelist(this.settings) && !BeGoneSettingsHelper.isBlacklist(this.settings)) {
@@ -162,7 +182,7 @@ export class BeGone {
         let probeGefluechtete = false;
         let probeArtikelUndKontraktionen = false;
 
-        if (!this.settings.skip_topic || this.settings.skip_topic && this.mtype || this.settings.skip_topic && !/Binnen-I|Geflüchtete/.test(bodyTextContent)) {
+        if (!this.settings.skip_topic || this.settings.skip_topic && this.isOnDemand || this.settings.skip_topic && !/Binnen-I/.test(bodyTextContent)) {
             probeBinnenI = /[a-zäöüß]{2}((\/-?|_|\*|:|\.|\u00b7| und -)?In|(\/-?|_|\*|:|\.|\u00b7| und -)in(n[\*|\.]en)?|(\/-?|_|\*|:|\.|\u00b7)ze||(\/-?|_|\*|:|\.|\u00b7)a|(\/-?|_|\*|:|\.|\u00b7)nja|INNen|\([Ii]n+(en\)|\)en)?|\/inne?)(?!(\w{1,2}\b)|[A-Z]|[cf]o|t|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)|[A-ZÄÖÜß]{3}(\/-?|_|\*|:|\.)IN\b|(der|die|dessen|ein|sie|ihr|sein|zu[rm]|jede|frau|man|eR\b|em?[\/\*.&_\(])/.test(bodyTextContent);
             probeArtikelUndKontraktionen = /[a-zA-ZäöüßÄÖÜ][\/\*.&_\(]-?[a-zA-ZäöüßÄÖÜ]/.test(bodyTextContent) || /der|die|dessen|ein|sie|ihr|sein|zu[rm]|jede|frau|man|eR\b|em?[\/\*.&_\(]-?e?r\b|em?\(e?r\)\b/.test(bodyTextContent);
 
@@ -317,7 +337,7 @@ export class BeGone {
 
     private entferneInserted(nodes: Array<CharacterData>) {
         this.log("entferneInserted");
-        if (!this.settings.skip_topic || this.settings.skip_topic && this.mtype || this.settings.skip_topic && !/Binnen-I/.test(document.body.textContent ? document.body.textContent : "")) {
+        if (!this.settings.skip_topic || this.settings.skip_topic && this.isOnDemand || this.settings.skip_topic && !/Binnen-I/.test(document.body.textContent ? document.body.textContent : "")) {
             if (this.settings.doppelformen) {
                 this.applyToNodes(nodes, this.replacer.entferneDoppelformen);
             }

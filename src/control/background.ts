@@ -3,9 +3,27 @@ import MessageSender = chrome.runtime.MessageSender;
 
 let settings: Partial<Settings> = {};
 
+// console.warn("Starting background", chrome.runtime.getManifest());
+
 function updateSetting(setting: Partial<Settings>) {
     chrome.storage.sync.set(setting);
 }
+
+const DefaultSettings: Required<Settings> = {
+    aktiv: true,
+    counter: true,
+    entgender_alternative: "phettberg",
+    invertiert: false,
+    doppelformen: true,
+    partizip: false,
+    skip_topic: false,
+    filterliste: "Blacklist",
+    whitelist: ".gv.at\n.ac.at\nderstandard.at\ndiestandard.at\nhttps://ze.tt/",
+    blacklist: "stackoverflow.com\ngithub.com\nhttps://developer\nhttps://de.wikipedia.org/wiki/Gendersternchen",
+    hervorheben: false,
+    hervorheben_style: "text-decoration: underline wavy blue;",
+};
+
 
 function updateSettings() {
     chrome.storage.sync.get(function(res: Settings) {
@@ -16,66 +34,47 @@ function updateSettings() {
             return false;
         }
         //Standardwerte bei der Initialisierung
-        if (isAnyUndefined(res.aktiv, res.invertiert, res.counter, res.doppelformen, res.partizip, res.skip_topic, res.filterliste, res.whitelist, res.blacklist, res.hervorheben_style)) {
-            if (res.aktiv === undefined) {
-                updateSetting({
-                    aktiv: true
-                });
-            }
-            if (res.counter === undefined) {
-                updateSetting({
-                    counter: true
-                });
-            }
-            if (res.invertiert === undefined) {
-                updateSetting({
-                    invertiert: false
-                });
-            }
-            if (res.doppelformen === undefined) {
-                updateSetting({
-                    doppelformen: true
-                });
-            }
-            if (res.partizip === undefined) {
-                updateSetting({
-                    partizip: false
-                });
-            }
-            if (res.skip_topic === undefined) {
-                updateSetting({
-                    skip_topic: false
-                });
-            }
-            if (res.filterliste === undefined) {
-                updateSetting({
-                    filterliste: "Blacklist"
-                });
-            }
-            if (res.whitelist === undefined || res.whitelist == "undefined") {
-                updateSetting({
-                    whitelist: ".gv.at\n.ac.at\nderstandard.at\ndiestandard.at\nhttps://ze.tt/"
-                });
-            }
-            if (res.blacklist === undefined || res.blacklist == "undefined") {
-                updateSetting({
-                    blacklist: "stackoverflow.com\ngithub.com\nhttps://developer\nhttps://de.wikipedia.org/wiki/Gendersternchen"
-                });
-            }
-            if (res.hervorheben_style === undefined || res.hervorheben_style == "undefined") {
-                updateSetting({
-                    hervorheben_style: "text-decoration: underline wavy blue;"
-                });
+        if (isAnyUndefined(...Object.keys(DefaultSettings).map(key => res[key]))) {
+
+            for (let key of Object.keys(DefaultSettings)) {
+                let current = res[key];
+                if (current === undefined || current == "undefined") {
+                    updateSetting({
+                        [key]: DefaultSettings[key]
+                    });
+                }
             }
 
             chrome.storage.sync.get(function(resagain:Settings) {
                 settings = resagain;
             });
         } else {
+            for (let key of Object.keys(DefaultSettings)) {
+                let previousValue = settings[key];
+                let newValue = res[key];
+                if (previousValue != newValue) {
+                    onConfigChanged(key, previousValue, newValue);
+                    console.log("Changed config", key, "from", previousValue, "to", newValue);
+                }
+            }
             settings = res;
         }
         updateIcon();
     });
+}
+
+function onConfigChanged<K extends keyof Settings>(key: K, from: Settings[K], to: Settings[K]) {
+    switch (key) {
+        case "entgender_alternative":
+            chrome.tabs.query({
+            }, function(tabs) {
+                sendMessageToTabs(tabs, {
+                    response: JSON.stringify(settings),
+                    type: "entgender_alternative"
+                });
+            });
+            break;
+    }
 }
 
 function handleMessage(request: Request, sender: MessageSender, sendResponse: (response?: any) => void) {
@@ -118,16 +117,12 @@ function sendMessage(tabId: number, message: Response) {
     chrome.tabs.sendMessage(tabId, message);
 }
 
-function sendMessageToTabs(tabs:chrome.tabs.Tab[]) {
+function sendMessageToTabs(tabs:chrome.tabs.Tab[], message: Response) {
     for (let tab of tabs) {
         if (tab.id == null) {
             continue;
         }
-        sendMessage(
-            tab.id, {
-                response: JSON.stringify(settings),
-                type: "ondemand"
-            });
+        sendMessage(tab.id,message );
     }
 }
 
@@ -183,7 +178,11 @@ function ButtonClickHandler() {
                 currentWindow: true,
                 active: true
             }, function(tabs) {
-                sendMessageToTabs(tabs);
+                sendMessageToTabs(tabs, {
+                    response: JSON.stringify(settings),
+                    type: "ondemand"
+                });
+
                 if (res.invertiert !== true) {
                     chrome.browserAction.setIcon({
                         path: 'images/iconOn.png',
@@ -209,13 +208,20 @@ function ButtonClickHandler() {
                 currentWindow: true,
                 active: true
             }, function(tabs) {
-                sendMessageToTabs(tabs);
+                sendMessageToTabs(tabs, {
+                    response: JSON.stringify(settings),
+                    type: "ondemand"
+                });
             });
         }
     });
 }
 
 updateSettings();
+
+chrome.commands.onCommand.addListener((command) => {
+    console.log("Received command", command);
+});
 
 //Kommunikation mit Content-Script
 chrome.runtime.onMessage.addListener(handleMessage);
