@@ -1,22 +1,12 @@
 import {Replacement} from "../replacement";
 import {stackToBeGone} from "../logUtil";
 import {SchreibAlternative} from "./alternative";
+import {capitalize, startsWithCapitalLetter} from "../utils/strings";
 
 class Const {
     static readonly gstar = String.raw`[\:\/\*\_\(-]{1,2}`;
     static readonly y = 'y';
     static readonly ys = 'ys';
-}
-
-function startsWithCapitalLetter(s: string): boolean {
-    return s != null && s.length > 0 && /[A-Z]/.test(s[0]);
-}
-
-function capitalize(s: string): string {
-    if (s == null || s.length < 1) {
-        return "";
-    }
-    return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export class Phettberg implements SchreibAlternative {
