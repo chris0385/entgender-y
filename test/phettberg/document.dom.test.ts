@@ -42,6 +42,17 @@ describe('setzte ins Neutrum', () => {
         it(`${from} -> ${to}`, () => {
             testFromToInitial(from, to);
         });
+        let FROM = from.toUpperCase();
+
+        if (false) {
+            // TODO: FIXME: uppercase funktioniert nicht
+            let TO = to.toUpperCase();
+            if (TO != FROM) {
+                it(`${FROM} -> ${TO}`, () => {
+                    testFromToInitial(FROM, TO);
+                });
+            }
+        }
     }
 });
 

@@ -18,7 +18,7 @@
  */
 let BinnenIMap: { [k: string]: string } = {
     // auch mittelpunkt (· \u00b7)
-    "{STERN}": String.raw`[\:\/\*\_-·’']{1,2}`,
+    "{STERN}": String.raw`(?:[\:\/\*\_\-\u00b7’']{1,2})`,
     "{KLO}": String.raw`[(\[{]`,
     "{KLC}": String.raw`[)\]}]`,
     "{BINI}": String.raw`[ïÏI]`,
@@ -26,11 +26,20 @@ let BinnenIMap: { [k: string]: string } = {
     "{STERN-KLO}": '{STERN-KLO}', // später generiert
     "{ALT}": String.raw`(?:und|oder|&|bzw\.?|[\/\*_\-:])`,
     // syllable hyphen (soft hyphen)
-    "{SHY}": `\u00AD`,
+    "{SHY}": `[\u00AD\u200B]`,
     "{NOURL}": String.raw`(?<!https?://[-a-zA-Z0-9@:%._\\+~#=()&?]{0,256})`, // negative lookbehind checking we are not in an url
+    // No english word suffixes for in
+    "{NO-IN_EN}": String.raw`(?!(\w{1,2}\b)|[cf]o|te[gr]|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`
 };
 let BinnenI_Repl: RegExp = RegExp(`(${Object.keys(BinnenIMap).join("|")})`, 'g');
 
+export function multiLineRegEx(regex: (string | RegExp)[]): String {
+    return regex.map(re => {
+        if (typeof re == "string") return re;
+        if (re.flags) throw new Error("Flags not supported");
+        return re.source;
+    }).join('');
+}
 export function binnenReMap(regex: string): string {
     return regex.replace(BinnenI_Repl, (m) => {
         // @ts-ignore

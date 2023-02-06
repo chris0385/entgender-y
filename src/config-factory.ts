@@ -42,7 +42,7 @@ class SubGroup<T extends KeyToReplacementConfig> {
 
 }
 
-type ValueOf<T> = T[keyof T];
+
 export class Factory {
     private readonly config: TwoLevelConfig;
 

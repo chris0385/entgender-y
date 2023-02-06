@@ -1,7 +1,7 @@
 import {NeutralStyleConfig} from "./config-def";
 
 
-export const Phettberg: NeutralStyleConfig = {
+export const PhettbergConfig: NeutralStyleConfig = {
     something: {foo: {dendie: "undefined"}},
     artikelUndKontraktionen: {
         "den,die,dessen..": {

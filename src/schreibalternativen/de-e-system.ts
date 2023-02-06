@@ -1,6 +1,6 @@
 import {Replacement} from "../replacement";
 import {stackToBeGone} from "../logUtil";
-import {capitalize, startsWithCapitalLetter} from "../utils/strings";
+import {capitalize, removeAccents, startsWithCapitalLetter} from "../utils/strings";
 import {SchreibAlternative} from "./alternative";
 import {binnenReMap} from "../utils/binnenRegEx";
 
@@ -11,9 +11,14 @@ class Const {
 
     // plural, hinter ein 'er'
     static readonly erne = 'erne';
+    static readonly ne = 'ne';
+    static readonly ernen= 'ernen'; // dativ
+    // Singular
+    static readonly ere = 'ere';
+    static readonly e = 'e';
 }
 
-function replacer(regex: string, modifier: string, replacement: string, description?: string): Replacement {
+function replacer(regex: string, modifier: string, replacement: string, description: string = ""): Replacement {
     return new Replacement(binnenReMap(regex), modifier, replacement, description);
 }
 
@@ -23,10 +28,10 @@ export class DeESystem implements SchreibAlternative {
     replacementsDoppel = 0;
     replacementsPartizip = 0;
 
-    private log(s: string) {
+    private log(...s: any[]) {
         //return; ///////////////////////////////////
         let sumChange = this.replacementsBinnen + this.replacementsDoppel + this.replacementsPartizip;
-        console.log("DE", s, sumChange, "\n" + stackToBeGone(1).join("\n"));
+        console.log("DE", (new Date()), ...s, sumChange, "\n" + stackToBeGone(1).join("\n"));
     }
 
     artikelUndKontraktionen = (s: string): string => {
@@ -120,6 +125,16 @@ export class DeESystem implements SchreibAlternative {
         let counter = function () {
             outer.replacementsBinnen++;
         };
+        /**
+         * Algorithmus:
+         *  1) Normalisierung: mache aus allen formen (-,*,:,I,ï) eine form mit Bindestrich
+         *          (Bindestrich ist case-insensitive und kann im Gegensatz zu * in RegExes geschrieben werden)
+         *     SCHÜLER(INNEN)  -> SCHÜLER-INNEN
+         *  2) Umwandlung (case-insensitive)
+         *     SCHÜLER-INNEN   -> SCHÜLerne
+         *  3) Case-Korrektur:
+         *     SCHÜLerne       -> SCHÜLERNE
+         */
 
         // entferne *x am Ende
         if (/\*x/.test(s)) {
@@ -130,78 +145,93 @@ export class DeESystem implements SchreibAlternative {
         // unregelmässige Pluralformen
         s = this.entferneUnregelmaessigeFormen(s);
 
-        if (/[a-zäöüß\u00AD\u200B]{2}((\/-?|_|\*|:|\.|\u00b7| und -)?In|(\/-?|_|\*|:|\.|\u00b7| und -)in(n[\*|\.]en)?|INNen|\([Ii]n+(en\)|\)en)?|\/inne?)(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)|[A-ZÄÖÜß\u00AD\u200B]{3}(\/-?|_|\*|:|\.)IN\b/.test(s)) {
-            this.log("12000");
-            s = new Replacement(String.raw`[\u00AD\u200B]`, "g", "", "entfernt soft hyphens").replace(s, counter);
+        this.log("12000");
+        s = new Replacement(String.raw`[\u00AD\u200B]`, "g", "", "entfernt soft hyphens").replace(s, counter);
 
-            //Prüfung auf Ersetzung
-            if (/[a-zäöüß](\/-?|_|\*|:|\.|\u00b7| und -)in\b/i.test(s) || /[a-zäöüß](\/-?|_|\*|:|\.|\u00b7| und -)inn(\*|\.|\))?en/i.test(s) || /[a-zäöüß](\(|\/)in/i.test(s) || /[a-zäöüß]INNen/.test(s)) {
-                this.log("12100");
-                s = new Replacement(String.raw`(\/-?|_|\*|:|\u00b7|\.)inn(\*|\.|\/)?e(\*|\.|\/)?n`, "ig", "Innen", "Schüler/innen").replace(s, counter);
-                s = new Replacement(String.raw`([a-zäöüß])\(inn(en\)|\)en)`, "ig", "\$1Innen", "Schüler(innen)").replace(s, counter);
-                s = new Replacement(String.raw`([a-zäöüß])INNen`, "g", "\$1Innen", "SchülerINNen").replace(s, counter);
-                s = new Replacement(String.raw` und -innen\b`, "ig", "", "und -innen").replace(s, counter);
-                s = new Replacement(String.raw`([a-zäöüß])\(in\)`, "ig", "$1In", "Schüler(in)").replace(s, counter);
-                s = new Replacement(String.raw`(?<!https:\/\/lnkd)(er)?(${Const.gstar})in\b`, "ig", Const.y, "Schüler/in").replace(s, counter);
-                this.log(s);
-            }
-
-            //Plural
-            if (/[a-zäöüß]Innen/i.test(s)) {
-                this.log("12200");
-                //Prüfung auf Sonderfälle
-                if (/(chef|fan|gött|verbesser|äur|äs)innen/i.test(s)) {
-                    s = new Replacement(String.raw`(C|c)hefInnen`, "g", "\$1hef" + Const.ys, "").replace(s, counter);
-
-                    s = new Replacement(String.raw`(F|f)anInnen`, "g", "\$1ans", "").replace(s, counter);
-                    s = new Replacement(String.raw`([Gg]ött|verbesser)(?=Innen)`, "g", "\$1" + Const.ys, "").replace(s, counter);
-                    s = new Replacement(String.raw`äue?rInnen`, "g", "auern", "").replace(s, counter);
-                    s = new Replacement(String.raw`äsInnen`, "g", "as" + Const.ys, "?? Gibt es das??").replace(s, counter);
-                }
-                // statt Leerzeichen kommt [\s]{1,2} zum Einsatz -> Leerzeichen oder Leerzeichen + Markerzeichen für die Kontexterkennung (hacky, aber so what)
-                s = new Replacement(String.raw`\b(([Dd]en|[Aa]us|[Aa]ußer|[Bb]ei|[Dd]ank|[Gg]egenüber|[Ll]aut|[Mm]it(samt)?|[Nn]ach|[Ss]amt|[Vv]on|[Uu]nter|[Zz]u|[Ww]egen|[MmSsDd]?einen)(?: zwei| drei| [0-9]+)?[\s]{1,2}([ID]?[a-zäöüß]+en[\s]{1,2}|[0-9.,]+[\s]{1,2})?[A-ZÄÖÜ][a-zäöüß]+)erInnen\b`, "g", "\$1" + Const.ys, "unregelmäßiger Dativ bei Wörtern auf ...erInnen").replace(s, counter);
-
-                s = new Replacement(String.raw`(er?|ER?)Innen`, "g", Const.erne, "").replace(s, counter);
-
-                // Notiz: (?:[A-Z][a-zöüä]+\b[,] |[A-Z][*I_ïa-zöüä]+\b und ) soll Aufzählungen erkennen, die mit Komma oder "und" verkettet sind; bspw. "AutorInnen und FreundInnen", was der Anlass für diese Regel war (als Kopie von Markierung 1)
-                s = new Replacement(String.raw`((?:von[\s]{1,2}|mit[\s]{1,2})(?:[A-Z][a-zöüä]+\b[,][\s]{1,2}|[A-Z][*I_ïa-zöüä]+\b und[\s]{1,2})[a-zA-Zöäüß]*?)([Aa]nwält|[Ää]rzt|e[iu]nd|rät|amt|äst|würf|äus|[ai(eu)]r|irt)Innen`, "g", "\$1\$2" + Const.ys, "").replace(s, counter);
-
-                // Markierung 1
-                s = new Replacement(String.raw`([Aa]nwält|[Ää]rzt|e[iu]nd|rät|amt|äst|würf|äus|[ai(eu)]r|irt)Innen`, "g", "\$1" + Const.ys, "").replace(s, counter);
-                s = new Replacement(String.raw`([nrtsmdfghpbklvwNRTSMDFGHPBKLVW])Innen`, "g", "\$1" + Const.ys, "").replace(s, counter);
-            }
-
-            //Singular
-            if (/[a-zäöüß]In/.test(s) && !/([Pp]lug|Log|[Aa]dd|Linked)In\b/.test(s)) {
-                this.log("12300");
-                //Prüfung auf Sonderfälle
-
-                if (/amtIn|stIn\B|verbesser(?=In)/.test(s)) {
-                    s = new Replacement(String.raw`verbesserIn`, "g", "verbess" + Const.y, "").replace(s, counter);
-                    s = new Replacement(String.raw`amtIn`, "g", "amt" + Const.y, "").replace(s, counter);
-                    s = new Replacement(String.raw`stIn\B(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di[ac]|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`, "g", "st" + Const.y, "JournalistInfrage").replace(s, counter);
-                }
-                //Prüfung auf Umlaute
-                if (/[äöüÄÖÜ][a-z]{0,3}In/.test(s)) {
-                    s = new Replacement(String.raw`ä(?=s(t)?In|tIn|ltIn|rztIn)`, "g", "a", "").replace(s, counter);
-                    s = new Replacement(String.raw`ÄrztIn`, "g", "Arzt" + Const.y, "").replace(s, counter);
-                    s = new Replacement(String.raw`ö(?=ttIn|chIn)`, "g", "o", "").replace(s, counter);
-                    s = new Replacement(String.raw`ü(?=rfIn)`, "g", "u", "").replace(s, counter);
-                    s = new Replacement(String.raw`ündIn`, "g", "und", "").replace(s, counter);
-                    s = new Replacement(String.raw`äue?rIn`, "g", "auer", "").replace(s, counter);
-                }
-                s = new Replacement(String.raw`\b(([Dd]en|[Aa]us|[Aa]ußer|[Bb]ei|[Dd]ank|[Gg]egenüber|[Ll]aut|[Mm]it(samt)?|[Nn]ach|[Ss]amt|[Uu]nter|[Vv]on|[Zz]u|[Ww]egen|[MmSsDd]?eine[mnrs]) ([ID]?[a-zäöüß]+en)?[A-ZÄÖÜ][a-zäöüß]+)logIn\b`, "g", "log" + Const.y, "unregelmäßiger Dativ bei eine/n Psycholog/in").replace(s, counter);
-
-                s = new Replacement(String.raw`([skgvwzSKGVWZ]|ert|[Bb]rit|[Kk]und|ach)In(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`, "g", "\$1" + Const.y, "ExpertIn, BritIn, KundIn, WachIn").replace(s, counter);
-
-                s = new Replacement(String.raw`(e[nrtmdbplhfcNRTMDBPLHFC])In(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`, "g", Const.y, "").replace(s, counter);
-
-                s = new Replacement(String.raw`([nrtmdbplhfcNRTMDBPLHFC])In(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`, "g", "\$1" + Const.y, "").replace(s, counter);
-            }
-
+        //Prüfung auf Ersetzung
+        if (true ) {
+            this.log("12100", s);
+            // Plural
+            s = replacer(String.raw`{STERN}{II}nn{STERN}?e{STERN}?n`, "ig", "-innen", "Schüler/innen").replace(s, counter);
+            s = replacer(String.raw`([a-zäöüß])\({II}nn(en\)|\)en)`, "ig", "\$1-innen", "Schüler(innen), Schüler(inn)en").replace(s, counter);
+            s = replacer(String.raw`([a-zäöüß])INNen`, "g", "\$1-innen", "SchülerINNen").replace(s, counter);
+            s = replacer(String.raw`([a-zäöüß])[ÏI]nnen`, "g", "\$1-innen", "SchülerInnen").replace(s, counter);
+            s = replacer(String.raw` und -innen\b`, "ig", "-innen", "und -innen").replace(s, counter);
+            // Singular
+            s = replacer(String.raw`([a-zäöüß])\(in\)`, "ig", "$1-in", "Schüler(in)").replace(s, counter);
+            s = replacer(String.raw`{NOURL}(er)?{STERN}{II}n\b`, "ig", "$1-in", "Schüler/in").replace(s, counter);
+            this.log("12150", s);
         }
 
+        //Plural
+        if (true) {
+            this.log("12200");
+            //Prüfung auf Sonderfälle
+            if (true) {
+                s = replacer(String.raw`(C|c)hef-innen`, "ig", "\$1hef" + Const.erne, "").replace(s, counter);
+
+                s = replacer(String.raw`(F|f)an-innen`, "ig", "\$1ans", "").replace(s, counter);
+                s = replacer(String.raw`(gött|verbess)(?:er)(?:-innen)`, "ig", "\$1" + Const.erne, "").replace(s, counter);
+                s = replacer(String.raw`äue?r-innen`, "g", "auer"+Const.ne, "").replace(s, counter);
+            }
+            // statt Leerzeichen kommt [\s]{1,2} zum Einsatz -> Leerzeichen oder Leerzeichen + Markerzeichen für die Kontexterkennung (hacky, aber so what)
+            s = replacer(String.raw`\b(`+
+                `([Dd]en|[Aa]us|[Aa]ußer|[Bb]ei|[Dd]ank|[Gg]egenüber|[Ll]aut|[Mm]it(samt)?|[Nn]ach|[Ss]amt|[Vv]on|[Uu]nter|[Zz]u|[Ww]egen|[MmSsDd]?einen)`+
+                `(?: zwei| drei| [0-9]+)?`+
+                `[\s]{1,2}([ID]?[a-zäöüß]+en[\s]{1,2}|[0-9.,]+[\s]{1,2})?[A-ZÄÖÜ][a-zäöüß]+)er-innen\b`, "ig", "\$1" + Const.ernen, "unregelmäßiger Dativ bei Wörtern auf ...erInnen").replace(s, counter);
+
+            s = replacer(String.raw`(er?)-innen`, "gi", Const.erne).replace(s, counter);
+
+            // Notiz: (?:[A-Z][a-zöüä]+\b[,] |[A-Z][*I_ïa-zöüä]+\b und ) soll Aufzählungen erkennen, die mit Komma oder "und" verkettet sind; bspw. "AutorInnen und FreundInnen", was der Anlass für diese Regel war (als Kopie von Markierung 1)
+            s = replacer(String.raw`((?:von[\s]{1,2}|mit[\s]{1,2})(?:[A-Z][a-zöüä]+\b[,][\s]{1,2}|[A-Z][*I_ïa-zöüä]+\b und[\s]{1,2})[a-zA-Zöäüß]*?)([Aa]nwält|[Ää]rzt|e[iu]nd|rät|amt|äst|würf|äus|[ai(eu)]r|irt)-innen`, "ig", "\$1\$2" + Const.ernen, "").replace(s, counter);
+
+            // Markierung 1
+            s = replacer(String.raw`([Aa]nwält|[Ää]rzt|e[iu]nd|rät|amt|äst|würf|äus|[ai(eu)]r|irt)-innen`, "g", "\$1" + Const.erne, "").replace(s, counter);
+
+            s = replacer(String.raw`([nrtsmdfghpbklvwNRTSMDFGHPBKLVW])-innen`, "g", "\$1" + Const.erne, "").replace(s, counter);
+        }
+
+        //Singular
+        if (true) {
+            this.log("12300");
+            //Prüfung auf Sonderfälle
+
+            if (/amt-in|st-in\B|verbesser-(?=In)/i.test(s)) {
+                s = replacer(String.raw`(verbess)er-in`, "gi", "$1" + Const.ere, "").replace(s, counter);
+                s = replacer(String.raw`(amt)-in`, "gi", "$1" + Const.y, "").replace(s, counter);
+                s = replacer(String.raw`(st)-in\B(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di[ac]|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`, "ig", "$1" + Const.ere, "JournalistInfrage").replace(s, counter);
+            }
+            //Prüfung auf Umlaute
+            if (/[äöüÄÖÜ][a-z]{0,3}-in/.test(s)) {
+                // ä -> a
+                // ö -> o
+                // ü -> u
+                s = replacer(
+                    String.raw`(ä)(?=s(t)?-in|t-in|lt-in|rzt-in|ue?r-in)`+
+                    String.raw`(ö)(?=tt-in|ch-in)`+
+                    String.raw`(ü)(?=rf-in|nd-id)`, "ig", "", "").replaceCallback(s, (match) => {
+                    return removeAccents(match);
+                }, counter);
+
+                // TODO: kann das noch passieren? das ä ist weg
+                s = new Replacement(String.raw`(Ärzt)-in`, "g", "$1" + Const.e, "").replace(s, counter);
+            }
+            s = new Replacement(String.raw`\b(([Dd]en|[Aa]us|[Aa]ußer|[Bb]ei|[Dd]ank|[Gg]egenüber|[Ll]aut|[Mm]it(samt)?|[Nn]ach|[Ss]amt|[Uu]nter|[Vv]on|[Zz]u|[Ww]egen|[MmSsDd]?eine[mnrs]) ([ID]?[a-zäöüß]+en)?[A-ZÄÖÜ][a-zäöüß]+)logIn\b`, "g", "log" + Const.y, "unregelmäßiger Dativ bei eine/n Psycholog/in").replace(s, counter);
+
+            s = new Replacement(String.raw`([skgvwzSKGVWZ]|ert|[Bb]rit|[Kk]und|ach)In(?!(\w{1,2}\b)|[A-Z]|[cf]o|te[gr]|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)`, "g", "\$1" + Const.y, "ExpertIn, BritIn, KundIn, WachIn").replace(s, counter);
+
+            // TODO: detect CamelCase (-in[A-Z])
+            s = replacer(String.raw`(e[nrtmdbplhfcNRTMDBPLHFC])-in{NO-IN_EN}`, "gi", Const.ere, "").replace(s, counter);
+
+            s = replacer(String.raw`([nrtmdbplhfcNRTMDBPLHFC])-in{NO-IN_EN}`, "gi", "\$1" + Const.ere, "").replace(s, counter);
+
+            this.log("12370");
+        }
+
+
         s = this.artikelUndKontraktionen(s);
+
+        this.log("End-Binnen");
 
         return s;
     }

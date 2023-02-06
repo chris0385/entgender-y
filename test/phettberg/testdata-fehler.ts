@@ -108,6 +108,14 @@ export function insertDataOfFailingTestsInto(replacementTestStrings: TestDataTyp
             "BäuerIn",
             "Bauy" // aktuell Bauer
         ],
+        [
+            "SCHÜLER(INNEN)",
+            "SCHÜLYS"
+        ],
+        [
+            "ÄRZT-IN",
+            "ARZTY"
+        ],
     ); // end Binnen
 
 // Doppel
