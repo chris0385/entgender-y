@@ -35,8 +35,11 @@ export class BeGone {
     private replacer: SchreibAlternative;
     private mutationObserverInitialized: boolean = false;
 
-    constructor(replacer: SchreibAlternative = new Phettberg()) {
+    constructor(replacer: SchreibAlternative = new Phettberg(), settings?: BeGoneSettings) {
         this.replacer = replacer;
+        if (settings) {
+            Object.assign(this.settings, settings);
+        }
     }
 
     private log(...s: any[]) {
@@ -184,6 +187,8 @@ export class BeGone {
 
         if (!this.settings.skip_topic || this.settings.skip_topic && this.isOnDemand || this.settings.skip_topic && !/Binnen-I/.test(bodyTextContent)) {
             probeBinnenI = /[a-zäöüß]{2}((\/-?|_|\*|:|\.|\u00b7| und -)?In|(\/-?|_|\*|:|\.|\u00b7| und -)in(n[\*|\.]en)?|(\/-?|_|\*|:|\.|\u00b7)ze||(\/-?|_|\*|:|\.|\u00b7)a|(\/-?|_|\*|:|\.|\u00b7)nja|INNen|\([Ii]n+(en\)|\)en)?|\/inne?)(?!(\w{1,2}\b)|[A-Z]|[cf]o|t|act|clu|dex|di|line|ner|put|sert|stall|stan|stru|val|vent|v?it|voice)|[A-ZÄÖÜß]{3}(\/-?|_|\*|:|\.)IN\b|(der|die|dessen|ein|sie|ihr|sein|zu[rm]|jede|frau|man|eR\b|em?[\/\*.&_\(])/.test(bodyTextContent);
+            // UpperCase
+            probeBinnenI ||= /[A-ZäöüßÄÖÜ](\/-?|_|\*|:|\.|\(|\u00b7| und -)IN(NEN?)/.test(bodyTextContent);
             probeArtikelUndKontraktionen = /[a-zA-ZäöüßÄÖÜ][\/\*.&_\(]-?[a-zA-ZäöüßÄÖÜ]/.test(bodyTextContent) || /der|die|dessen|ein|sie|ihr|sein|zu[rm]|jede|frau|man|eR\b|em?[\/\*.&_\(]-?e?r\b|em?\(e?r\)\b/.test(bodyTextContent);
 
             if (this.settings.doppelformen) {

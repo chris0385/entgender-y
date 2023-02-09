@@ -12,7 +12,7 @@ class Const {
     // plural, hinter ein 'er'
     static readonly erne = 'erne';
     static readonly ne = 'ne';
-    static readonly ernen= 'ernen'; // dativ
+    static readonly ernen = 'ernen'; // dativ
     // Singular
     static readonly ere = 'ere';
     static readonly e = 'e';
