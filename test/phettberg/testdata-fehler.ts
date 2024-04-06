@@ -73,6 +73,8 @@ export function insertDataOfFailingTestsInto(replacementTestStrings: TestDataTyp
             "SCHÜLER*IN",
             "SCHÜLY"
         ],
+        ["die WählerINnen", "die Wählys"],
+        ["die WÄHLER*INNEN", "die WÄHLYS"],
         [
             "Leser’innen", "Lesys"
         ],
