@@ -88,9 +88,17 @@ export class ChangeAllowedChecker {
 
     private checkRemovedNode(node: Element) {
         for (let editable of this.editableElements) {
+            try {
+                editable.nodeType;
+            } catch (e) {
+                if (e instanceof TypeError) {
+                    // element is a DeadObject
+                    this.editableElements.delete(editable);
+                    continue;
+                }
+            }
             if (node.contains(editable) || editable == node) {
                 this.editableElements.delete(editable);
-                // console.log("Deleted", node, this.editableElements);
             }
         }
     }
